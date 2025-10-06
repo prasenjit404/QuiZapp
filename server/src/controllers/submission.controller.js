@@ -30,11 +30,11 @@ const submitQuiz = asyncHandler(async (req, res) => {
   });
   if (existing) throw new ApiError(400, "You have already submitted this quiz");
 
-  await Quiz.findById(quizId).populate("questions");
+  const populatedQuiz = await Quiz.findById(quizId).populate("questions");
+  if (!populatedQuiz) throw new ApiError(404, "Quiz not found");
 
-  if (!quiz) throw new ApiError(404, "Quiz not found");
+  const questions = populatedQuiz.questions;
 
-  const questions = quiz.questions;
   if (!questions.length)
     throw new ApiError(404, "No questions found for this quiz");
 
@@ -47,9 +47,13 @@ const submitQuiz = asyncHandler(async (req, res) => {
       if (!question) return null;
 
       const isCorrect = ans.selectedOption === question.correctAnswer;
-      const marksAwarded = isCorrect ? question.marks : -question.negativeMarks;
+      // console.log(ans.selectedOption,":", question.correctAnswer);
+      
+      const marksAwarded = isCorrect
+        ? Number(question.marks || 0)
+        : -Number(question.negativeMarks || 0);
 
-      score += marksAwarded;
+      score = Number.isNaN(score) ? 0 : score;
 
       return {
         questionId: ans.questionId,

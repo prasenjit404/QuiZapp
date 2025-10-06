@@ -240,25 +240,46 @@ const getQuizById = asyncHandler(async (req, res) => {
       { path: "questions" },
     ]); // include everything
   } else if (role === "student") {
-    quiz = await Quiz.findById(quizId);
+  quiz = await Quiz.findById(quizId);
 
-    if (quiz.isProtected) {
-      if (quiz.accessCode !== accessCode) {
-        throw new ApiError(403, "Invalid access code");
-      }
-      if (quiz.accessCodeExpiry && quiz.accessCodeExpiry < new Date()) {
-        throw new ApiError(403, "Access code expired");
-      }
+  if (!quiz) throw new ApiError(404, "Quiz not found");
+
+  // Check if quiz has a start time set
+  if (quiz.startTime && quiz.startTime > new Date()) {
+    const timeRemaining = Math.ceil((quiz.startTime - new Date()) / 1000); // in seconds
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          quizId: quiz._id,
+          title: quiz.title,
+          description: quiz.description,
+          startTime: quiz.startTime,
+          startsInSeconds: timeRemaining,
+        },
+        `Quiz hasn't started yet. Starts in ${Math.ceil(timeRemaining / 60)} min(s).`
+      )
+    );
+  }
+
+  if (quiz.isProtected) {
+    if (quiz.accessCode !== accessCode) {
+      throw new ApiError(403, "Invalid access code");
     }
+    if (quiz.accessCodeExpiry && quiz.accessCodeExpiry < new Date()) {
+      throw new ApiError(403, "Access code expired");
+    }
+  }
 
-    quiz = await quiz.populate([
-      { path: "createdBy", select: "fullName email" },
-      { path: "questions", select: "-correctAnswer" },
-    ]);
+  quiz = await quiz.populate([
+    { path: "createdBy", select: "fullName email" },
+    { path: "questions", select: "-correctAnswer" },
+  ]);
 
-    quiz.accessCode = undefined;
-    quiz.accessCodeExpiry = undefined;
-  } else {
+  quiz.accessCode = undefined;
+  quiz.accessCodeExpiry = undefined;
+}
+ else {
     throw new ApiError(403, "Invalid role");
   }
 
