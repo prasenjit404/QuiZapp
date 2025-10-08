@@ -44,9 +44,9 @@ const userSchema = new Schema(
     unverifiedExpiry: {
       type: Date,
       default: function () {
-        return this.isVerified ? undefined : Date.now() + 24 * 60 * 60 * 1000;
+        return this.isVerified ? undefined : Date.now() + 30 * 60 * 1000; //30 mins
       },
-      index: { expires: "0s" },
+      index: { expires: 0 },
     },
     resetPasswordToken: {
       type: String

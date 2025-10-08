@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { sendEmail } from "../utils/email/sendEmail.js";
 import { verifyEmailTemplate } from "../utils/email/templates/verifyEmail.template.js";
 import jwt from "jsonwebtoken";
+import { redis } from "../utils/redis.js";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -47,7 +48,9 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   const verificationToken = crypto.randomBytes(32).toString("hex");
-  const verificationTokenExpiry = Date.now() + 10 * 60 * 1000; //10 minutes validity
+  // const verificationTokenExpiry = Date.now() + 1 * 60 * 1000; //10 minutes validity
+
+  const verificationTokenExpiry = 1800; //30 minutes validity
 
   const user = await User.create({
     fullName,
@@ -55,8 +58,8 @@ const registerUser = asyncHandler(async (req, res) => {
     password,
     role,
     isVerified: false,
-    verificationToken,
-    verificationTokenExpiry,
+    // verificationToken,
+    // verificationTokenExpiry,
   });
 
   const createdUser = await User.findById(user._id).select(
@@ -66,14 +69,22 @@ const registerUser = asyncHandler(async (req, res) => {
   if (!createdUser) {
     throw new ApiError(500, "Something went wrong while creating the user");
   }
+
+  const otp = crypto.randomInt(100000, 999999).toString();
+
+  await redis.set(`email:${email}`, JSON.stringify({ otp }),
+    { ex: verificationTokenExpiry}
+  );
   // console.log(createdUser);
 
-  const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}&email=${email}`;
+  // const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}&email=${email}`;
+
+  
 
   await sendEmail({
     to: email,
     subject: "Verify your email - Quiz App",
-    html: verifyEmailTemplate({ fullName, verifyUrl }),
+    html: verifyEmailTemplate({ fullName, otp }),
   });
 
   return res
@@ -88,7 +99,7 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 const verifyEmail = asyncHandler(async (req, res) => {
-  const { email, token } = req.body;
+  const { email, otp } = req.body;
 
   const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) throw new ApiError(400, "Invalid link");
@@ -99,20 +110,32 @@ const verifyEmail = asyncHandler(async (req, res) => {
       .json(new ApiResponse(200, null, "Email already verified"));
   }
 
-  if (
-    user.verificationToken !== token ||
-    user.verificationTokenExpiry < Date.now()
-  ) {
+  const otpFromRedis = await redis.get(`email:${email}`);
+
+  // const parsedUser = userFromRedis ? JSON.parse(userFromRedis) : null;
+
+  // console.log("otpFromRedis: ",otpFromRedis);
+
+  if(!otpFromRedis){
+    throw new ApiError(400, "OTP is invalid or expired");
+  }
+  // if (
+  //   user.verificationToken !== token ||
+  //   user.verificationTokenExpiry < Date.now()
+  // ) {
+  //   throw new ApiError(400, "Token is invalid or expired");
+  // }
+
+  if(otp!==otpFromRedis.otp){
     throw new ApiError(400, "Token is invalid or expired");
   }
+  
 
   await User.updateOne(
     { _id: user._id },
     {
       $set: { isVerified: true },
       $unset: {
-        verificationToken: "",
-        verificationTokenExpiry: "",
         unverifiedExpiry: "",
       },
     }
