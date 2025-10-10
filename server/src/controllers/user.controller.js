@@ -7,6 +7,7 @@ import { sendEmail } from "../utils/email/sendEmail.js";
 import { verifyEmailTemplate } from "../utils/email/templates/verifyEmail.template.js";
 import jwt from "jsonwebtoken";
 import { redis } from "../utils/redis.js";
+import { forgotPasswordTemplate } from "../utils/email/templates/forgotPassword.template.js";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -314,70 +315,128 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 });
 
 const forgotPassword = asyncHandler(async (req, res) => {
-  const { email } = req.body;
-  if (email.trim() === "") {
+  const emailRaw = (req.body?.email ?? "").toString();
+  if (!emailRaw.trim()) {
     throw new ApiError(400, "Email is required");
   }
 
-  email = email.toLowerCase().trim();
+  const email = emailRaw.toLowerCase().trim();
 
   const user = await User.findOne({ email });
-  //todo: will change the message in production
-  if (!user) throw new ApiError(404, "User with this email does not exist");
+
+  if (!user) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, {}, "If an account with that email exists, a reset link has been sent."));
+  }
 
   // generate raw reset token
-  const resetToken = crypto.randomBytes(32).toString("hex");
+  const rawToken = crypto.randomBytes(32).toString("hex");
 
   // hash it before saving (so even if DB leaks, attacker can’t use it)
   const hashedToken = crypto
     .createHash("sha256")
-    .update(resetToken)
+    .update(rawToken)
     .digest("hex");
 
-  user.resetPasswordToken = hashedToken;
-  user.resetPasswordExpiry = Date.now() + 20 * 60 * 1000; // 10 min
-  await user.save({ validateBeforeSave: false });
+  const ttlSeconds = 20 * 60; // 20 mins
+
+  const redisKey = `pwdreset:${hashedToken}`;
+
+  // await user.save({ validateBeforeSave: false });
+
+  try {
+    await redis.set(redisKey, String(user._id), { ex: ttlSeconds});
+  } catch (err) {
+    console.error("Redis set error", err);
+    throw new ApiError(500, "Internal server error");
+  }
 
   // reset URL
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}&email=${user.email}`;
+  const resetUrl = `${process.env.FRONTEND_URL.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(
+    rawToken
+  )}&email=${encodeURIComponent(user.email)}`;
 
   // send email
-  await sendEmail({
-    to: email,
-    subject: "Password Reset Request - Quiz App",
-    html: forgotPasswordTemplate({ fullName: user.fullName, resetUrl }),
-  });
-  //todo: will delete later
-  console.log(resetToken);
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: "Password Reset Request - Quiz App",
+      html: forgotPasswordTemplate({ fullName: user.fullName, resetUrl }),
+    });
+  } catch (sendErr) {
+    console.error("Failed to send reset email", sendErr);
+    // rollback Redis key to avoid orphaned usable token
+    try {
+      await redisClient.del(redisKey);
+    } catch (delErr) {
+      console.error("Failed to delete redis key after email send failure", delErr);
+    }
+    throw new ApiError(500, "Failed to send reset email. Please try again later.");
+  }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "Password reset link sent to email"));
+    .json(new ApiResponse(200, {}, "If an account with that email exists, a reset link has been sent."));
 });
 
 const resetPassword = asyncHandler(async (req, res) => {
-  const { token, email, newPassword } = req.body;
+  let { token, email, newPassword } = req.body ?? {};
 
-  if (!token || !email || !newPassword)
+  if (!token || !email || !newPassword) {
     throw new ApiError(400, "Token, email and new password are required");
+  }
+
+  email = email.toLowerCase().trim();
+
+  if (typeof newPassword !== "string" || newPassword.length < 6) {
+    throw new ApiError(400, "Password must be at least 6 characters");
+  }
+
+
 
   // hash the token to compare with DB
   const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+  const redisKey = `pwdreset:${hashedToken}`;
 
-  const user = await User.findOne({
-    email,
-    resetPasswordToken: hashedToken,
-    resetPasswordExpiry: { $gt: Date.now() }, // still valid
-  });
+  // lookup in redis
+  let userId;
+  try {
+    userId = await redis.get(redisKey);
+  } catch (err) {
+    console.error("Redis get error", err);
+    throw new ApiError(500, "Internal server error");
+  }
 
-  if (!user) throw new ApiError(400, "Invalid or expired token");
+  if (!userId) {
+    throw new ApiError(400, "Invalid or expired token");
+  }
 
-  // update password
+  // find user and ensure email matches the id (extra safety)
+  const user = await User.findById(userId);
+  if (!user || user.email.toLowerCase() !== email) {
+    // either mismatch or user removed -> delete key and reject
+    try {
+      await redis.del(redisKey);
+    } catch (e) {}
+    throw new ApiError(400, "Invalid or expired token");
+  }
+
+  // update password (assume pre-save hook hashes password)
   user.password = newPassword;
-  user.resetPasswordToken = undefined;
-  user.resetPasswordExpiry = undefined;
-  user.refreshToken = undefined; // invalidate sessions
+
+  // invalidate sessions
+  user.refreshToken = undefined;
+
+  // Save user
   await user.save();
+
+  // Delete redis key so token cannot be reused
+  try {
+    await redis.del(redisKey);
+  } catch (err) {
+    console.error("Failed to delete redis key after reset", err);
+  }
 
   return res
     .status(200)
