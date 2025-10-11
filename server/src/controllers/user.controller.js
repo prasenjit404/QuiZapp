@@ -166,7 +166,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const isPasswordValid = await user.isPasswordCorrect(password);
 
-  if (!isPasswordValid) throw new ApiError(401, "Password incorrect");
+  if (!isPasswordValid) throw new ApiError(401, "Email or Password is incorrect");
 
   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
     user._id

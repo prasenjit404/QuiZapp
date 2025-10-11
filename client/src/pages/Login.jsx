@@ -16,9 +16,26 @@ export default function Login() {
 
     try {
       await login(email, password);
-      navigate("/"); // ✅ redirect after successful login
+      navigate("/"); // redirect after successful login
     } catch (err) {
-      setError(err.message || "Failed to login. Please try again.");
+      // Safely extract message from the error (handles axios/non-axios)
+      const msg =
+        err?.response?.data?.message ?? err?.message ?? "Failed to login. Please try again.";
+
+      // If backend tells us user must verify email, redirect to verify page with the email
+      // (Adjust the exact message check to match your API)
+      if (typeof msg === "string" && msg.toLowerCase().includes("verify")) {
+        // Optionally show the message briefly before redirecting:
+        setError(msg);
+        // navigate to /verify and pass the email so the verify page can pre-fill it
+        setTimeout(()=>{
+          navigate("/verify", { state: { email } })
+        }, 2000);
+        return;
+      }
+
+      // Otherwise show the error message
+      setError(msg);
     }
   };
 
@@ -38,7 +55,6 @@ export default function Login() {
           </div>
         )}
 
-        {/* Email field */}
         <label className="block mb-3 dark:text-white">
           <div className="text-sm mb-1">Email</div>
           <input
@@ -50,7 +66,6 @@ export default function Login() {
           />
         </label>
 
-        {/* Password field */}
         <label className="block mb-1 dark:text-white">
           <div className="text-sm mb-1">Password</div>
           <input
@@ -62,7 +77,6 @@ export default function Login() {
           />
         </label>
 
-        {/* ✅ Forgot Password button */}
         <div className="flex justify-end mb-5">
           <button
             type="button"
@@ -73,7 +87,6 @@ export default function Login() {
           </button>
         </div>
 
-        {/* Submit button */}
         <button
           type="submit"
           disabled={loading}
@@ -82,7 +95,6 @@ export default function Login() {
           {loading ? "Signing in…" : "Sign in"}
         </button>
 
-        {/* ✅ Link to Signup page */}
         <div className="text-sm text-center mt-4 text-gray-600 dark:text-gray-300">
           Don’t have an account?{" "}
           <button
