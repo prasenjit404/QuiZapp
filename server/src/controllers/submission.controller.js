@@ -26,7 +26,7 @@ const submitQuiz = asyncHandler(async (req, res) => {
 
   const existing = await Submission.findOne({
     quizId,
-    studentId: req.user._id,
+    submittedBy: req.user._id,
   });
   if (existing) throw new ApiError(400, "You have already submitted this quiz");
 
@@ -48,16 +48,21 @@ const submitQuiz = asyncHandler(async (req, res) => {
 
       const isCorrect = ans.selectedOption === question.correctAnswer;
       // console.log(ans.selectedOption,":", question.correctAnswer);
-      
+
       const marksAwarded = isCorrect
         ? Number(question.marks || 0)
         : -Number(question.negativeMarks || 0);
 
-      score = Number.isNaN(score) ? 0 : score;
+      if (!Number.isNaN(marksAwarded)) {
+        score += marksAwarded;
+      }
 
       return {
         questionId: ans.questionId,
+        question: question.text,
         selectedOption: ans.selectedOption,
+        correctOption: question.correctAnswer,
+        allOptions: question.options,
         isCorrect,
         marksAwarded,
       };
@@ -73,7 +78,7 @@ const submitQuiz = asyncHandler(async (req, res) => {
 
   const submission = await Submission.create({
     quizId,
-    studentId: req.user._id,
+    submittedBy: req.user._id,
     answers: evaluatedAnswers,
     score,
     startedAt: startTime,
@@ -93,14 +98,18 @@ const submitQuiz = asyncHandler(async (req, res) => {
 // 2. Get submission by student for a quiz
 const getSubmissionByQuiz = asyncHandler(async (req, res) => {
   const { quizId } = req.params;
-
-  const submission = await Submission.findOne({
+  console.log(req.params);
+  
+  
+  const submission = await Submission.find({
     quizId,
-    studentId: req.user._id,
-  }).populate("answers.questionId", "text options correctAnswer marks"); // show question text + options
+    submittedBy: req.user._id,
+  })
+    
 
   if (!submission) throw new ApiError(404, "No submission found");
-
+  console.log(submission);
+  
   return res
     .status(200)
     .json(new ApiResponse(200, submission, "Submission fetched successfully"));
@@ -108,7 +117,7 @@ const getSubmissionByQuiz = asyncHandler(async (req, res) => {
 
 // 3. Get all attempted quiz of a student
 const getUserQuizHistory = asyncHandler(async (req, res) => {
-  const submissions = await Submission.find({ studentId: req.user._id })
+  const submissions = await Submission.find({ submittedBy: req.user._id })
     .populate("quizId", "title")
     .select("-answers -timeTaken -startedAt") // fetch quiz details
     .sort({ createdAt: -1 });

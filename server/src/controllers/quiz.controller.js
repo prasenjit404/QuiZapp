@@ -10,6 +10,7 @@ import { io } from "../index.js";
 import { redis } from "../utils/redis.js";
 import { v4 as uuidv4 } from "uuid";
 import he from "he";
+import { log } from "console";
 
 /**
  * @desc Create a new quiz
@@ -76,11 +77,8 @@ const publishQuiz = asyncHandler(async (req, res) => {
   const { quizId } = req.params;
   const { startTime } = req.body; // teacher provides start time (ISO string or timestamp)
 
-  if (req.user.role !== "teacher") {
-    throw new ApiError(403, "You are not authorized!");
-  }
-
   const quiz = await Quiz.findById(quizId);
+
   if (!quiz) throw new ApiError(404, "Quiz not found");
 
   if (!quiz.createdBy.equals(req.user._id)) {
@@ -99,7 +97,7 @@ const publishQuiz = asyncHandler(async (req, res) => {
   // Expiry = startTime + duration (in minutes)
   const expiry = new Date(quizStartTime.getTime() + quiz.duration * 60 * 1000);
 
-  quiz.isProtected = true;
+  quiz.isPublished = true;
   quiz.accessCode = otp;
   quiz.startTime = quizStartTime;
   quiz.accessCodeExpiry = expiry;
@@ -137,9 +135,12 @@ const getDemoQuiz = asyncHandler(async (req, res) => {
 
   // If logged in AND user provided numberOfQuestions, override
   if (req.user && req.query.numberOfQuestions) {
-    numberOfQuestions = Math.min(parseInt(req.query.numberOfQuestions, 10) || 5, 50);
+    numberOfQuestions = Math.min(
+      parseInt(req.query.numberOfQuestions, 10) || 5,
+      50
+    );
 
-    ttl=Math.min(numberOfQuestions * 60 + 300, 3600); // max 1 hr
+    ttl = Math.min(numberOfQuestions * 60 + 300, 3600); // max 1 hr
   }
 
   // Build trivia API URL
@@ -198,24 +199,20 @@ const getDemoQuiz = asyncHandler(async (req, res) => {
  * @access teacher/student
  */
 
-const getQuizzesByRole = asyncHandler(async (req, res) => {
-  const { role, _id } = req.user;
+const getAllCreatedQuizzes = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
 
   let quizzes;
-
-  if (role === "teacher") {
-    // Teacher → see own quizzes with full details
+  try {
     quizzes = await Quiz.find({ createdBy: _id }).populate(
       "createdBy",
       "fullName email"
     );
-  } else if (role === "student") {
-    // Student → see all quizzes but without answers
-    quizzes = await Quiz.find().populate("createdBy", "fullName email");
-  } else {
-    throw new ApiError(403, "Invalid role");
+  } catch (error) {
+    throw new ApiError(500, "Internal server error");
   }
-
+  // console.log(quizzes);
+  
   return res
     .status(200)
     .json(new ApiResponse(200, quizzes, "Quizzes fetched successfully"));
@@ -229,58 +226,71 @@ const getQuizzesByRole = asyncHandler(async (req, res) => {
 
 const getQuizById = asyncHandler(async (req, res) => {
   const { quizId } = req.params;
-  const { role } = req.user;
-  const { accessCode } = req.body;
+  // const { role } = req.user;
+  
   // console.log(quizId);
-  let quiz;
+  let quiz = await Quiz.findById(quizId);
 
-  if (role === "teacher") {
+  if(!quiz){
+    throw new ApiError(404, "Quiz not found!");
+  }
+
+  if (quiz.createdBy.equals(req.user._id)) {
     quiz = await Quiz.findById(quizId).populate([
       { path: "createdBy", select: "fullName email" },
       { path: "questions" },
-    ]); // include everything
-  } else if (role === "student") {
-  quiz = await Quiz.findById(quizId);
-
-  if (!quiz) throw new ApiError(404, "Quiz not found");
-
-  // Check if quiz has a start time set
-  if (quiz.startTime && quiz.startTime > new Date()) {
-    const timeRemaining = Math.ceil((quiz.startTime - new Date()) / 1000); // in seconds
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        {
-          quizId: quiz._id,
-          title: quiz.title,
-          description: quiz.description,
-          startTime: quiz.startTime,
-          startsInSeconds: timeRemaining,
-        },
-        `Quiz hasn't started yet. Starts in ${Math.ceil(timeRemaining / 60)} min(s).`
-      )
-    );
+    ]);
   }
-
-  if (quiz.isProtected) {
-    if (quiz.accessCode !== accessCode) {
-      throw new ApiError(403, "Invalid access code");
+  else{
+    if(!quiz.isPublished){
+      throw new ApiError(400, "Quiz has not published yet!")
     }
-    if (quiz.accessCodeExpiry && quiz.accessCodeExpiry < new Date()) {
-      throw new ApiError(403, "Access code expired");
+    const { accessCode } = req.query || null;
+
+    if(!accessCode){
+      throw new ApiError(400, "OTP required!")
     }
-  }
 
-  quiz = await quiz.populate([
-    { path: "createdBy", select: "fullName email" },
-    { path: "questions", select: "-correctAnswer" },
-  ]);
+    if(quiz.accessCode !== accessCode){
+      throw new ApiError(401, "Provide right OTP")
+    }
+    
+    // quiz = await Quiz.findById(quizId);
 
-  quiz.accessCode = undefined;
-  quiz.accessCodeExpiry = undefined;
-}
- else {
-    throw new ApiError(403, "Invalid role");
+    // Check if quiz has a start time set
+    if (quiz.startTime && quiz.startTime > new Date()) {
+      const timeRemaining = Math.ceil((quiz.startTime - new Date()) / 1000); // in seconds
+      return res.status(200).json(
+        new ApiResponse(
+          200,
+          {
+            quizId: quiz._id,
+            title: quiz.title,
+            description: quiz.description,
+            startTime: quiz.startTime,
+            startsInSeconds: timeRemaining,
+          },
+          `Quiz hasn't started yet. Starts in ${Math.ceil(timeRemaining / 60)} min(s).`
+        )
+      );
+    }
+
+    if (quiz.isProtected) {
+      if (quiz.accessCode !== accessCode) {
+        throw new ApiError(403, "Invalid access code");
+      }
+      if (quiz.accessCodeExpiry && quiz.accessCodeExpiry < new Date()) {
+        throw new ApiError(403, "Access code expired");
+      }
+    }
+
+    quiz = await quiz.populate([
+      { path: "createdBy", select: "fullName email" },
+      { path: "questions", select: "-correctAnswer" },
+    ]);
+
+    quiz.accessCode = undefined;
+    quiz.accessCodeExpiry = undefined;
   }
 
   return res
@@ -426,7 +436,7 @@ const deleteQuiz = asyncHandler(async (req, res) => {
 export {
   createQuiz,
   publishQuiz,
-  getQuizzesByRole,
+  getAllCreatedQuizzes,
   getQuizById,
   updateQuiz,
   deleteQuiz,

@@ -8,7 +8,7 @@ const submissionSchema = new Schema(
       ref: "Quiz",
       required: true,
     },
-    studentId: {
+    submittedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -20,7 +20,10 @@ const submissionSchema = new Schema(
           ref: "Question",
           required: true,
         },
+        question: { type: String, required: true },
         selectedOption: { type: String, required: true },
+        correctOption: { type: String, required: true },
+        allOptions:[{type: String, required:true}],
         isCorrect: { type: Boolean, default: false },
         marksAwarded: { type: Number, default: 0 },
       },

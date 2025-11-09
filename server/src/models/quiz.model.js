@@ -30,7 +30,7 @@ const quizSchema = new Schema(
         ref: "Question",
       },
     ],
-    isProtected: {
+    isPublished: {
       type: Boolean,
       default: false,
     }, // if true → needs OTP

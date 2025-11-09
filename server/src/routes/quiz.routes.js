@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
   createQuiz,
-  getQuizzesByRole,
+  getAllCreatedQuizzes,
   getQuizById,
   updateQuiz,
   deleteQuiz,
@@ -18,11 +18,11 @@ router.route("/demo/start").get(getDemoQuiz);
 // Protect all quiz routes
 router.use(verifyJWT);
 
-router.route("/createQuiz").post(createQuiz); // create quiz
+router.route("/create-quiz").post(createQuiz); // create quiz
 
 router.route("/:quizId/publish").post(publishQuiz);
 
-router.route("/role-based").get(getQuizzesByRole); // get all quizzes
+router.route("/created-all").get(getAllCreatedQuizzes); // get all quizzes
 
 router
   .route("/:quizId")
