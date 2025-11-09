@@ -46,29 +46,6 @@ export default function QuizResult({
     pick(data, ["feedback", "data.feedback", "result.feedback", "perQuestionFeedback", "details"]) ||
     null;
 
-  // quiz-by-id shapes
-  const answers =
-    pick(data, ["answers", "data.answers", "result.answers"]) || null;
-  const totalMarks = pick(data, ["totalMarks", "data.totalMarks", "result.totalMarks"]) || null;
-  const startedAt = pick(data, ["startedAt", "data.startedAt", "result.startedAt"]) || null;
-  const submittedAt = pick(data, ["submittedAt", "data.submittedAt", "result.submittedAt"]) || null;
-  const timeTakenMs = pick(data, ["timeTaken", "data.timeTaken", "result.timeTaken", "duration"]) || null;
-
-  // helper formatters
-  const fmtDateTime = (d) => {
-    if (!d) return "-";
-    const dt = d instanceof Date ? d : new Date(d);
-    if (Number.isNaN(dt.getTime())) return "-";
-    return dt.toLocaleString();
-  };
-  const fmtDuration = (ms) => {
-    if (ms == null || Number.isNaN(Number(ms))) return "-";
-    const s = Math.floor(Number(ms) / 1000);
-    const mm = String(Math.floor(s / 60)).padStart(2, "0");
-    const ss = String(s % 60).padStart(2, "0");
-    return `${mm}:${ss}`;
-  };
-
   // small components
   const FeedbackList = ({ items }) => {
     if (!Array.isArray(items) || items.length === 0) {
@@ -114,7 +91,7 @@ export default function QuizResult({
     <div className="p-6 max-w-3xl mx-auto">
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded">
         <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-          {quiz?.title ? `${quiz.title} — Demo Results` : "Demo Results"}
+          Demo Quiz Result
         </h2>
         <div className="text-sm text-gray-600 dark:text-gray-300 mb-4">{result?.message ?? ""}</div>
 
@@ -128,9 +105,9 @@ export default function QuizResult({
           </div>
         </div>
 
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex gap-3 justify-center">
           <button onClick={onRetry} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded">Retry</button>
-          <button onClick={onHome} className="px-4 py-2 border rounded bg-white dark:bg-gray-900">Home</button>
+          <button onClick={onHome} className="px-4 py-2 border rounded bg-white hover:bg-gray-100 dark:bg-gray-200 dark:hover:bg-gray-300">Home</button>
         </div>
       </div>
     </div>
@@ -142,9 +119,9 @@ export default function QuizResult({
         <div className="flex justify-between items-start">
           <div>
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-              {quiz?.title ? `${quiz.title} — Demo Results` : "Demo Results"}
+            Surprise Quiz Result
             </h2>
-            <div className="text-sm text-gray-600 dark:text-gray-300">{result?.message ?? ""}</div>
+            {/* <div className="text-sm text-gray-600 dark:text-gray-300">{result?.message ?? ""}</div> */}
           </div>
 
           <div className="text-right">
@@ -158,13 +135,13 @@ export default function QuizResult({
 
         {/* Feedback */}
         <div>
-          <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">Per-question feedback</h3>
+          {/* <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">Per-question feedback</h3> */}
           <FeedbackList items={Array.isArray(feedback) ? feedback : []} />
         </div>
 
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex gap-3 justify-center">
           <button onClick={onRetry} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded">Retry</button>
-          <button onClick={onHome} className="px-4 py-2 border rounded bg-white dark:bg-gray-900">Home</button>
+          <button onClick={onHome} className="px-4 py-2 border rounded bg-white hover:bg-gray-100 dark:bg-gray-200 dark:hover:bg-gray-300">Home</button>
           {(quiz?._id || quiz?.id) && (
             <button
               onClick={() =>
@@ -174,65 +151,6 @@ export default function QuizResult({
             >
               View Leaderboard
             </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  const QuizByIdView = () => (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-              {quiz?.title ? `${quiz.title} — Results` : "Quiz Results"}
-            </h2>
-            <div className="text-sm text-gray-600 dark:text-gray-300">{result?.message ?? ""}</div>
-          </div>
-
-          <div className="text-right">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Score</div>
-            <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-              {score ?? "--"}
-              {totalMarks ? <span className="text-base font-medium text-gray-500 dark:text-gray-400"> / {totalMarks}</span> : null}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="p-3 rounded border text-center"> <div className="text-sm text-gray-500">Started</div> <div className="text-sm text-gray-700 dark:text-gray-100">{fmtDateTime(startedAt)}</div> </div>
-          <div className="p-3 rounded border text-center"> <div className="text-sm text-gray-500">Submitted</div> <div className="text-sm text-gray-700 dark:text-gray-100">{fmtDateTime(submittedAt)}</div> </div>
-          <div className="p-3 rounded border text-center"> <div className="text-sm text-gray-500">Time</div> <div className="text-sm text-gray-700 dark:text-gray-100">{fmtDuration(timeTakenMs)}</div> </div>
-        </div>
-
-        {Array.isArray(answers) && answers.length > 0 ? (
-          <div className="mt-6">
-            <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">Answers</h3>
-            <div className="space-y-3">
-              {answers.map((ans, idx) => {
-                const isCorrect = !!ans.isCorrect;
-                return (
-                  <div key={ans._id ?? ans.questionId ?? idx} className="p-3 rounded border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="text-sm text-gray-700 dark:text-gray-100">Q: <span className="font-medium">{ans.questionText ?? ans.questionId}</span></div>
-                      <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">Selected: <span className="font-medium">{ans.selectedOption ?? ans.selected ?? "-"}</span><span className="mx-2">•</span>Marks: <span className="font-medium">{ans.marksAwarded ?? "-"}</span></div>
-                    </div>
-                    <div><span className={`px-3 py-1 rounded-full text-sm font-semibold ${isCorrect ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{isCorrect ? "Correct" : "Incorrect"}</span></div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">No per-answer details available.</div>
-        )}
-
-        <div className="mt-6 flex gap-3">
-          <button onClick={onRetry} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded">Retry</button>
-          <button onClick={onHome} className="px-4 py-2 border rounded bg-white dark:bg-gray-900">Home</button>
-          {(quiz?._id || quiz?.id) && (
-            <button onClick={() => onViewLeaderboard ? onViewLeaderboard(quiz._id || quiz.id) : (window.location.href = `/leaderboard/${quiz._id || quiz.id}`)} className="px-4 py-2 border rounded bg-white dark:bg-gray-900">View Leaderboard</button>
           )}
         </div>
       </div>
@@ -255,7 +173,6 @@ export default function QuizResult({
       {(!Array.isArray(feedback) || feedback.length === 0) && <RawPayload />}
     </>
   );
-  if (mode === "quiz") return <QuizByIdView />;
 
   // fallback
   return (
@@ -273,7 +190,7 @@ export default function QuizResult({
 }
 
 QuizResult.propTypes = {
-  mode: PropTypes.oneOf(["guest-demo", "auth-demo", "quiz"]),
+  mode: PropTypes.oneOf(["guest-demo", "auth-demo"]),
   quiz: PropTypes.object,
   result: PropTypes.object,
   onRetry: PropTypes.func,

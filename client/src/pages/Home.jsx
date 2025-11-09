@@ -11,7 +11,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
-      {/* <Navbar /> */}
 
       <main className="flex-grow">
         <section className="max-w-6xl mx-auto px-6 py-20 md:py-28 lg:flex lg:items-center lg:justify-between">
@@ -33,19 +32,10 @@ export default function LandingPage() {
               >
                 Try Demo
               </Link>
-
-              {/* <Link
-                to="/login"
-                className="inline-flex items-center px-6 py-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-              >
-                Login
-              </Link> */}
             </div>
           </div>
         </section>
       </main>
-
-      {/* <Footer /> */}
     </div>
   );
 }

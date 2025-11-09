@@ -63,7 +63,10 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
       setQuiz(null);
 
       // For auth-demo we must wait for requestedCount to be set (positive number)
-      if (effectiveMode === "auth-demo" && (!requestedCount || requestedCount <= 0)) {
+      if (
+        effectiveMode === "auth-demo" &&
+        (!requestedCount || requestedCount <= 0)
+      ) {
         setLoading(false);
         return;
       }
@@ -75,19 +78,27 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
         } else if (effectiveMode === "auth-demo") {
           // pass query param name "numberOfQuestions" per your backend
           const q = Number(requestedCount) || undefined;
-          const url = q ? `/quizzes/demo/start/protected?numberOfQuestions=${encodeURIComponent(q)}` : "/quizzes/demo/start/protected";
+          const url = q
+            ? `/quizzes/demo/start/protected?numberOfQuestions=${encodeURIComponent(
+                q
+              )}`
+            : "/quizzes/demo/start/protected";
           try {
             res = await axiosClient.get(url);
           } catch (innerErr) {
             // try fallback without param if the server rejects param — keep inner error for logs
-            console.warn("Protected demo start failed with param, retrying without param", innerErr);
+            console.warn(
+              "Protected demo start failed with param, retrying without param",
+              innerErr
+            );
             res = await axiosClient.get("/quizzes/demo/start/protected");
           }
         } else {
           if (!quizId) throw new Error("quizId is required for mode='quiz'");
           res = await axiosClient.get(`/quizzes/${quizId}`);
         }
-
+        // console.log(res);
+        
         // normalize payload safely
         const payload =
           res?.data?.data?.quiz ??
@@ -95,7 +106,8 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
           res?.data?.data ??
           res?.data ??
           res;
-
+        // console.log(payload);
+        
         const maybeSessionId =
           res?.data?.sessionId ??
           res?.sessionId ??
@@ -137,12 +149,20 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
         };
 
         const normalized = normalize(payload);
-        if (!normalized || !Array.isArray(normalized.questions) || normalized.questions.length === 0) {
+        if (
+          !normalized ||
+          !Array.isArray(normalized.questions) ||
+          normalized.questions.length === 0
+        ) {
           throw new Error("No questions available for this quiz.");
         }
 
         // slice if server returned more than requestedCount (auth-demo)
-        if (effectiveMode === "auth-demo" && requestedCount && normalized.questions.length > requestedCount) {
+        if (
+          effectiveMode === "auth-demo" &&
+          requestedCount &&
+          normalized.questions.length > requestedCount
+        ) {
           normalized.questions = normalized.questions.slice(0, requestedCount);
         }
 
@@ -154,8 +174,11 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
       } catch (e) {
         console.error("Quiz load error:", e);
         // prefer server message when present
-        const serverMsg = e?.response?.data?.message ?? e?.message ?? "Failed to load quiz.";
-        setError(typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg));
+        const serverMsg =
+          e?.response?.data?.message ?? e?.message ?? "Failed to load quiz.";
+        setError(
+          typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg)
+        );
       } finally {
         if (mounted) setLoading(false);
       }
@@ -189,7 +212,9 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
     questionStartRef.current = Date.now();
   };
   const jumpTo = (index) => {
-    setCurrentIndex(Math.min(Math.max(0, index), (quiz?.questions?.length || 1) - 1));
+    setCurrentIndex(
+      Math.min(Math.max(0, index), (quiz?.questions?.length || 1) - 1)
+    );
     questionStartRef.current = Date.now();
   };
 
@@ -198,7 +223,7 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
     setSubmitting(true);
     setError(null);
     // console.log(quiz);
-    
+
     // ensure last question timing recorded
     const lastQ = quiz.questions[currentIndex];
     if (lastQ) {
@@ -220,7 +245,9 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
       let res;
       if (effectiveMode === "guest-demo" || effectiveMode === "auth-demo") {
         if (!sessionId) {
-          setError("Submission requires a sessionId from the demo start response.");
+          setError(
+            "Submission requires a sessionId from the demo start response."
+          );
           setSubmitting(false);
           return;
         }
@@ -241,14 +268,17 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
         if (effectiveMode === "guest-demo")
           res = await axiosClient.post("/submissions/demo/submit", body);
         else
-          res = await axiosClient.post("/submissions/demo/submit/protected", body);
+          res = await axiosClient.post(
+            "/submissions/demo/submit/protected",
+            body
+          );
         // console.log(res);
-        
       } else {
         const answersArray = (quiz.questions || []).map((q) => {
           const qid = q._id || q.id;
           const pickedIdx = answers[qid]?.selectedOption;
-          const optionKey = typeof pickedIdx === "number" ? `option${pickedIdx + 1}` : null;
+          const optionKey =
+            typeof pickedIdx === "number" ? `option${pickedIdx + 1}` : null;
           return {
             questionId: qid,
             selectedOption: optionKey,
@@ -270,7 +300,12 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
     } catch (e) {
       console.error("Submit error", e);
       const serverMsg = e?.response?.data ?? e?.message ?? "Submit failed";
-      setError(e?.response?.data?.message || (typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg)));
+      setError(
+        e?.response?.data?.message ||
+          (typeof serverMsg === "string"
+            ? serverMsg
+            : JSON.stringify(serverMsg))
+      );
     } finally {
       setSubmitting(false);
     }
@@ -279,18 +314,25 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
   // ---------- RENDER PATHS ----------
 
   // auth-demo: prompt for number of questions before fetching
-  if (effectiveMode === "auth-demo" && (!requestedCount || requestedCount <= 0)) {
+  if (
+    effectiveMode === "auth-demo" &&
+    (!requestedCount || requestedCount <= 0)
+  ) {
     return (
       <div className="p-6 max-w-md mx-auto">
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded">
-          <h2 className="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Start demo quiz</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">How many questions would you like to attempt?</p>
+          <h2 className="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">
+            Start Surprise Quiz
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+            How many questions would you like to attempt?
+          </p>
 
           <div className="flex items-center gap-2 mb-4">
             <input
               type="number"
               min={1}
-              max={100}
+              max={50}
               value={tempCountInput}
               onChange={(e) => {
                 const val = Number(e.target.value || 1);
@@ -306,7 +348,9 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
             </button>
           </div>
 
-          <div className="text-sm text-gray-500 dark:text-gray-400">Tip: pick a small number (5–10) for a quick run.</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Tip: pick a small number (5–10) for a quick run. <br />*Max <span className="text-red-500">50</span> questions are allowed at a time.
+          </div>
           {error && <div className="mt-4 text-red-600">{error}</div>}
         </div>
       </div>
@@ -317,14 +361,16 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
   if (loading) {
     return (
       <div className="p-6 max-w-3xl mx-auto">
-        <div className="text-center text-gray-700 dark:text-gray-200">Loading quiz…</div>
+        <div className="text-center text-gray-700 dark:text-gray-200">
+          Loading quiz…
+        </div>
       </div>
-    //   <div
-    //   role="status"
-    //   aria-live="polite"
-    //   className="inline-block animate-spin rounded-full border-2 border-foreground/30 border-t-accent"
-    //   style={{ width: 24, height: 24 }}
-    // />
+      //   <div
+      //   role="status"
+      //   aria-live="polite"
+      //   className="inline-block animate-spin rounded-full border-2 border-foreground/30 border-t-accent"
+      //   style={{ width: 24, height: 24 }}
+      // />
     );
   }
   if (error && !quiz) {
@@ -363,7 +409,9 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
           startedAtRef.current = new Date().toISOString();
         }}
         onHome={() => (window.location.href = "/")}
-        onViewLeaderboard={(qid) => (window.location.href = `/leaderboard/${qid}`)}
+        onViewLeaderboard={(qid) =>
+          (window.location.href = `/leaderboard/${qid}`)
+        }
       />
     );
   }
@@ -372,7 +420,9 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
   if (!quiz || !Array.isArray(quiz.questions) || quiz.questions.length === 0) {
     return (
       <div className="p-6 max-w-3xl mx-auto">
-        <div className="text-center text-gray-700 dark:text-gray-200">No questions to display.</div>
+        <div className="text-center text-gray-700 dark:text-gray-200">
+          No questions to display.
+        </div>
       </div>
     );
   }
@@ -386,22 +436,36 @@ export default function QuizPlayer({ mode = "guest-demo", quizId = null }) {
     <div className="p-6 max-w-3xl mx-auto">
       <div className="mb-3">
         {sessionId ? (
-          <div className="text-xs text-gray-600 dark:text-gray-300 break-all">sessionId: {sessionId}</div>
+          <div className="text-xs text-gray-600 dark:text-gray-300 break-all">
+            sessionId: {sessionId}
+          </div>
         ) : (
-          <div className="text-xs text-yellow-600 dark:text-yellow-300">No sessionId returned by server</div>
+          <div className="text-xs text-yellow-600 dark:text-yellow-300">
+            No sessionId returned by server
+          </div>
         )}
       </div>
 
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{quiz.title ?? "Quiz"}</h2>
-          {quiz.description && <p className="text-sm text-gray-600 dark:text-gray-400">{quiz.description}</p>}
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            {quiz.title ?? "Quiz"}
+          </h2>
+          {quiz.description && (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {quiz.description}
+            </p>
+          )}
         </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">Question {currentIndex + 1} / {quiz.questions.length}</div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Question {currentIndex + 1} / {quiz.questions.length}
+        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-900 p-6 rounded shadow border border-gray-200 dark:border-gray-800">
-        <div className="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">{q.text}</div>
+        <div className="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">
+          {q.text}
+        </div>
 
         <div className="space-y-3">
           {(q.options || []).map((opt, idx) => {
