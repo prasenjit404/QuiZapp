@@ -3,7 +3,7 @@ import axios from "axios";
 const API_BASE = import.meta.env.VITE_API_URL
 
 const axiosClient = axios.create({
-  baseURL: API_BASE,
+  baseURL: API_BASE || "http://localhost:11000/api/v1",
   withCredentials: true, // send cookies if backend uses httpOnly refresh token
   headers: {
     "Content-Type": "application/json",
