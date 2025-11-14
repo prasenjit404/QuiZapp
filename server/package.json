@@ -25,7 +25,6 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.0",
     "mongoose-aggregate-paginate-v2": "^1.1.4",
-    "nodemailer": "^7.0.6",
     "resend": "^6.4.2",
     "socket.io": "^4.8.1",
     "uuid": "^13.0.0"
