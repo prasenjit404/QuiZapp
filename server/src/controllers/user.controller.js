@@ -84,7 +84,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   await sendEmail({
     to: email,
-    subject: "Verify your email - Quiz App",
+    subject: "Verify your email - QuiZapp",
     html: verifyEmailTemplate({ fullName, otp }),
   });
 
