@@ -10,7 +10,7 @@ export const verifyEmailTemplate = ({ fullName, otp }) => `
       ${otp}
     </div>
 
-    <p>This OTP will expire in <b>15 minutes</b>. Please do not share it with anyone.</p>
+    <p>This OTP will expire in <b>30 minutes</b>. Please do not share it with anyone.</p>
     <p>If you didn’t request this, you can safely ignore this email.</p>
 
     <br/>
