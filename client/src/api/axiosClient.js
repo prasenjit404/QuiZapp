@@ -1,10 +1,14 @@
 import axios from "axios";
 
-// If using Proxy, we leave the base empty (or just the path)
-// The browser will append this to the current origin (http://localhost:5173)
-// The proxy will then catch '/api' and forward it to the backend.
+// 1. In Production (Vercel), use the Env Variable.
+// 2. In Development (Local), use the Vite Proxy (relative path).
+// NOTE: Make sure you do NOT have a trailing slash in your Vercel Env Var.
+const baseURL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api/v1` 
+  : "/api/v1"; 
+
 const axiosClient = axios.create({
-  baseURL: "/api/v1", 
+  baseURL,
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
