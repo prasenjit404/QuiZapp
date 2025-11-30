@@ -182,7 +182,7 @@ const loginUser = asyncHandler(async (req, res) => {
   const options = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000, //7 days
   };
   //to be deleted later
@@ -257,7 +257,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     const options = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     };
 
@@ -325,9 +325,12 @@ const forgotPassword = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email });
 
   if (!user) {
+    console.log("DEBUG: User not found for email:", email);
     return res
       .status(200)
       .json(new ApiResponse(200, {}, "If an account with that email exists, a reset link has been sent."));
+  }else {
+    console.log("DEBUG: User found, attempting to send email to:", user.email);
   }
 
   // generate raw reset token
@@ -361,7 +364,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
   try {
     await sendEmail({
       to: user.email,
-      subject: "Password Reset Request - Quiz App",
+      subject: "Password Reset Request - QuiZapp",
       html: forgotPasswordTemplate({ fullName: user.fullName, resetUrl }),
     });
   } catch (sendErr) {

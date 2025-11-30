@@ -6,38 +6,45 @@ import { useNavigate } from "react-router-dom";
 
 export default function MyQuizzes() {
   const [quizzes, setQuizzes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(true); // Renamed to avoid conflict with auth loading
   const [error, setError] = useState(null);
 
   // per-quiz UI state
-  const [actionLoading, setActionLoading] = useState({}); // { [quizId]: { deleting, publishing } }
-  const [actionMessage, setActionMessage] = useState({}); // { [quizId]: { type, text } }
+  const [actionLoading, setActionLoading] = useState({});
+  const [actionMessage, setActionMessage] = useState({});
 
   // publish modal state
   const [publishModal, setPublishModal] = useState({
     open: false,
     quizId: null,
-    startTimeLocal: "", // datetime-local value like "2025-10-14T08:30"
+    startTimeLocal: "",
   });
 
   const navigate = useNavigate();
-  const { user } = useAuth();
+  
+  // 1. Get loading state from AuthContext
+  const { loading: authLoading } = useAuth();
 
   useEffect(() => {
+    // 2. Wait until Auth is done checking/refreshing token
+    if (authLoading) return;
+
+    let mounted = true;
     const fetchQuizzes = async () => {
       try {
         const res = await axiosClient.get("/quizzes/created-all");
-        setQuizzes(res?.data?.data ?? []);
+        if (mounted) setQuizzes(res?.data?.data ?? []);
       } catch (err) {
         console.error("fetchQuizzes error", err);
-        setError(err?.response?.data?.message || "Failed to fetch quizzes");
+        if (mounted) setError(err?.response?.data?.message || "Failed to fetch quizzes");
       } finally {
-        setLoading(false);
+        if (mounted) setPageLoading(false);
       }
     };
 
     fetchQuizzes();
-  }, []);
+    return () => { mounted = false; };
+  }, [authLoading]); // 3. Re-run once authLoading flips to false
 
   // helpers to manage per-quiz state
   const setQuizLoading = (quizId, key, value) => {
@@ -56,14 +63,8 @@ export default function MyQuizzes() {
     }
   };
 
-  // Delete quiz
   const handleDelete = async (quizId) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to delete this quiz? This action is irreversible."
-      )
-    )
-      return;
+    if (!window.confirm("Are you sure you want to delete this quiz? This cannot be undone.")) return;
 
     setQuizLoading(quizId, "deleting", true);
     setQuizMessage(quizId, null, null);
@@ -80,7 +81,6 @@ export default function MyQuizzes() {
     }
   };
 
-  // Open publish modal and optionally prefill startTimeLocal from existing ISO startTime
   const openPublishModal = (quizId, existingStartTimeIso) => {
     let pref = "";
     if (existingStartTimeIso) {
@@ -97,23 +97,18 @@ export default function MyQuizzes() {
         pref = "";
       }
     }
-    // default to now+5 minutes if nothing to prefill
     if (!pref) {
       const d = new Date(Date.now() + 5 * 60 * 1000);
       const pad = (n) => String(n).padStart(2, "0");
-      pref = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
-        d.getDate()
-      )}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      pref = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
     setPublishModal({ open: true, quizId, startTimeLocal: pref });
   };
 
-  // Confirm publish: convert local datetime to ISO UTC and POST to server
   const confirmPublish = async () => {
     const quizId = publishModal.quizId;
     if (!quizId) return;
 
-    // basic validation: startTimeLocal should be a parsable future datetime
     const localVal = publishModal.startTimeLocal;
     if (localVal) {
       const chosen = new Date(localVal);
@@ -122,8 +117,7 @@ export default function MyQuizzes() {
         return;
       }
       if (chosen.getTime() < Date.now() - 5000) {
-        if (!window.confirm("Start time is in the past. Publish anyway?"))
-          return;
+        if (!window.confirm("Start time is in the past. Publish anyway?")) return;
       }
     }
 
@@ -166,169 +160,176 @@ export default function MyQuizzes() {
     }
   };
 
-  // Cancel publish modal
   const cancelPublish = () =>
     setPublishModal({ open: false, quizId: null, startTimeLocal: "" });
 
-  if (loading)
+  const formatDate = (iso) => {
+    if (!iso) return "Not scheduled";
+    return new Date(iso).toLocaleString("en-IN", {
+      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+    });
+  };
+
+  // 4. Show loading state if either Auth is loading OR Page is loading
+  if (authLoading || pageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <p className="text-gray-700 dark:text-gray-300">
-          Loading your quizzes…
-        </p>
+        <p className="text-gray-700 dark:text-gray-300">Loading your quizzes...</p>
       </div>
     );
+  }
 
-  if (error)
+  if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-red-600 dark:text-red-400">{error}</div>
       </div>
     );
-    
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">My Created Quizzes</h1>
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-6 transition-colors duration-200">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Quizzes</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and publish your assessments</p>
+          </div>
+          <div className="flex gap-3">
             <button
               onClick={() => navigate("/")}
-              className="px-4 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
-              ← Back
+              Back
             </button>
             <button
               onClick={() => navigate("/create-quiz")}
-              className="px-4 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600"
+              className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-lg shadow-indigo-500/30 transition-transform transform hover:-translate-y-0.5"
             >
-              Create Quiz
+              + Create Quiz
             </button>
           </div>
         </div>
 
+        {/* Empty State */}
         {quizzes.length === 0 ? (
-          <div className="text-center py-20 border rounded-lg bg-white dark:bg-gray-800">
-            <p className="text-gray-600 dark:text-gray-300">
-              You haven’t created any quizzes yet.
-            </p>
+          <div className="text-center py-24 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
+            <div className="text-6xl mb-4 opacity-20">📂</div>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">No quizzes yet</h3>
+            <p className="text-gray-500 dark:text-gray-400 mt-2 mb-6">Create your first quiz to get started.</p>
+            <button
+              onClick={() => navigate("/create-quiz")}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+            >
+              Create Quiz
+            </button>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {quizzes.map((quiz) => {
               const qid = quiz._id;
-              const deleting = !!actionLoading[qid]?.deleting;
-              const publishing = !!actionLoading[qid]?.publishing;
+              const isDeleting = actionLoading[qid]?.deleting;
+              const isPublishing = actionLoading[qid]?.publishing;
               const msgObj = actionMessage[qid];
 
               return (
-                <div
-                  key={qid}
-                  className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 shadow-sm hover:shadow-md transition"
-                >
-                  <h2 className="text-xl font-semibold">{quiz.title}</h2>
-                  <p className="text-gray-600 dark:text-gray-300 mt-1">
-                    {quiz.description || "No description provided"}
-                  </p>
-
-                  <div className="mt-3 text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                    <p>🧩 Questions: {quiz.questions?.length ?? 0}</p>
-                    <p>📋 Total Marks: {quiz.totalMarks ?? "-"}</p>
-                    <p>
-                      ⏱ Duration:{" "}
-                      {typeof quiz.duration === "number"
-                        ? `${quiz.duration} ${
-                            quiz.duration <= 1 ? "min" : "mins"
-                          }`
-                        : "Not set"}
-                    </p>
-                    <p>
-                      📢 Published:{" "}
-                      <span
-                        className={
-                          quiz.isPublished ? "text-green-600" : "text-red-500"
-                        }
-                      >
-                        {quiz.isPublished ? "Yes" : "No"}
+                <div key={qid} className="group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col">
+                  
+                  {/* Card Content */}
+                  <div className="p-6 flex-grow">
+                    <div className="flex justify-between items-start mb-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                        quiz.isPublished 
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      }`}>
+                        {quiz.isPublished ? "Published" : "Draft"}
                       </span>
+                      {quiz.isPublished && (
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs text-gray-400 uppercase">Code</span>
+                          <span className="font-mono text-lg font-bold text-indigo-600 dark:text-indigo-400 tracking-wider">
+                            {quiz.accessCode}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 line-clamp-1" title={quiz.title}>
+                      {quiz.title}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-4 h-10">
+                      {quiz.description || "No description provided."}
                     </p>
 
-                    {quiz.isPublished && quiz.startTime && (
-                      <p>
-                        🕒 Start Time:{" "}
-                        {new Date(quiz.startTime).toLocaleString("en-IN", {
-                          timeZone: "Asia/Kolkata",
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })}
-                      </p>
-                    )}
-
-                    {quiz._id && (
-                      <p>
-                        🎟 Quiz Id:{" "}
-                        <span className="font-mono">{quiz._id}</span>
-                      </p>
-                    )}
-
-                    {quiz.accessCode && (
-                      <p>
-                        🎟 Access Code:{" "}
-                        <span className="font-mono">{quiz.accessCode}</span>
-                      </p>
-                      
-                    )}
+                    <div className="grid grid-cols-2 gap-y-2 text-sm text-gray-600 dark:text-gray-300 border-t border-gray-100 dark:border-gray-700 pt-4">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        {quiz.questions?.length || 0} Qs
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        {quiz.duration} min
+                      </div>
+                      {quiz.isPublished && (
+                        <div className="col-span-2 flex items-center gap-2 mt-1 text-xs text-gray-500">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                          Starts: {formatDate(quiz.startTime)}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="mt-5 flex justify-end gap-2.5 items-center">
+                  {/* Actions Footer */}
+                  <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-b-xl border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2">
                     {!quiz.isPublished ? (
                       <>
-                        {/* Edit Quiz */}
                         <button
                           onClick={() => navigate(`/edit-quiz/${qid}`)}
-                          disabled={publishing || deleting}
-                          className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md text-sm disabled:opacity-60"
+                          disabled={isPublishing || isDeleting}
+                          className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
                           Edit
                         </button>
-
-                        {/* Publish Quiz */}
                         <button
                           onClick={() => openPublishModal(qid, quiz.startTime)}
-                          disabled={publishing || deleting}
-                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm disabled:opacity-60"
+                          disabled={isPublishing || isDeleting}
+                          className="flex-1 px-3 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors disabled:opacity-70"
                         >
-                          {publishing ? "Publishing…" : "Publish"}
+                          {isPublishing ? "..." : "Publish"}
                         </button>
                       </>
                     ) : (
                       <button
                         onClick={() => navigate(`/quiz/${qid}`)}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm"
+                        className="flex-1 px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
                       >
-                        View Quiz
+                        Preview
                       </button>
                     )}
-
+                    
                     <button
                       onClick={() => handleDelete(qid)}
-                      disabled={deleting || publishing}
-                      className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-md text-sm disabled:opacity-60"
+                      disabled={isDeleting || isPublishing}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                      title="Delete Quiz"
                     >
-                      {deleting ? "Deleting…" : "Delete"}
+                      {isDeleting ? (
+                        <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      )}
                     </button>
                   </div>
 
                   {msgObj?.text && (
                     <div
-                      className={`mt-3 text-sm p-2 rounded ${
+                      className={`mt-3 mx-4 mb-4 text-xs p-2 rounded text-center ${
                         msgObj.type === "success"
-                          ? "bg-green-50 text-green-700 dark:bg-green-900/30"
-                          : "bg-red-50 text-red-700 dark:bg-red-900/30"
+                          ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                          : "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
                       }`}
                     >
                       {msgObj.text}
@@ -341,46 +342,39 @@ export default function MyQuizzes() {
         )}
       </div>
 
-      {/* Publish modal */}
+      {/* Publish Modal Overlay */}
       {publishModal.open && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
-            <h3 className="text-lg font-semibold mb-2">Publish quiz</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-              Choose a start time for this quiz (server expects ISO UTC). If you
-              skip, the quiz will start immediately.
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-100 dark:border-gray-700 animate-in fade-in zoom-in duration-200">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Publish Quiz</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              Set a start time. Students can only enter after this time. If left blank, it starts immediately.
             </p>
 
-            <label className="block mb-3 text-sm text-gray-700 dark:text-gray-300">
-              Start time (local)
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Start Time (Local)
+              </label>
               <input
                 type="datetime-local"
                 value={publishModal.startTimeLocal}
-                onChange={(e) =>
-                  setPublishModal((p) => ({
-                    ...p,
-                    startTimeLocal: e.target.value,
-                  }))
-                }
-                className="mt-1 w-full p-2 border rounded bg-gray-50 dark:bg-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-600"
+                onChange={(e) => setPublishModal((p) => ({ ...p, startTimeLocal: e.target.value }))}
+                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
               />
-            </label>
+            </div>
 
-            <div className="flex items-center justify-end gap-3 mt-4">
+            <div className="flex justify-end gap-3">
               <button
-                type="button"
-                onClick={cancelPublish}
-                className="px-3 py-2 rounded border bg-white dark:bg-gray-700"
+                onClick={() => setPublishModal({ open: false, quizId: null, startTimeLocal: "" })}
+                className="px-4 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
-
               <button
-                type="button"
                 onClick={confirmPublish}
-                className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700"
+                className="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium shadow-lg shadow-green-500/30 transition-transform transform hover:-translate-y-0.5"
               >
-                Publish
+                Confirm Publish
               </button>
             </div>
           </div>

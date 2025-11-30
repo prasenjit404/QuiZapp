@@ -1,14 +1,13 @@
-// src/pages/Signup.jsx
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosClient from "../api/axiosClient";
-import { useTheme } from "../contexts/ThemeContext"; // optional: for styling variations
+import { useTheme } from "../contexts/ThemeContext";
 
 export default function Signup() {
   const navigate = useNavigate();
-  const { theme } = useTheme?.() ?? { theme: "light" }; // safe fallback
+  const { theme } = useTheme?.() ?? { theme: "light" };
 
-  const [form, setForm] = React.useState({
+  const [form, setForm] = useState({
     fullName: "",
     email: "",
     password: "",
@@ -16,17 +15,20 @@ export default function Signup() {
     role: "student",
   });
 
-  const [errors, setErrors] = React.useState({});
-  const [serverError, setServerError] = React.useState(null);
-  const [submitting, setSubmitting] = React.useState(false);
-  const [successMessage, setSuccessMessage] = React.useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // validators
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
+
+  // Validators
   const validators = {
     fullName: (v) => (v && v.trim().length >= 2 ? null : "Please enter your full name (min 2 chars)."),
     email: (v) => (v && /^\S+@\S+\.\S+$/.test(v) ? null : "Please enter a valid email address."),
-    // password: (v) => (v && v.length >= 6 ? null : "Password must be at least 6 characters."),
-    // confirmPassword: (v, all) => (v === all.password ? null : "Passwords do not match."),
+    password: (v) => (v && v.length >= 6 ? null : "Password must be at least 6 characters."),
+    confirmPassword: (v, all) => (v === all.password ? null : "Passwords do not match."),
     role: (v) => (v === "student" || v === "teacher" ? null : "Please select a valid role."),
   };
 
@@ -43,9 +45,9 @@ export default function Signup() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((s) => ({ ...s, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: null }));
+    // Clear specific field error on change
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: null }));
     setServerError(null);
-    setSuccessMessage(null);
   };
 
   const handleSubmit = async (e) => {
@@ -56,7 +58,6 @@ export default function Signup() {
     setServerError(null);
 
     try {
-      // Build body exactly as your backend expects
       const body = {
         fullName: form.fullName.trim(),
         email: form.email.trim().toLowerCase(),
@@ -64,12 +65,11 @@ export default function Signup() {
         role: form.role,
       };
 
-      // POST to your register endpoint (change if your API differs)
       const res = await axiosClient.post("/users/register", body);
-
       const payload = res?.data ?? res;
+      
       setSuccessMessage(payload?.message ?? "Signup successful. Please verify your email.");
-      // short delay so user sees message then redirect to login
+      
       setTimeout(() => {
         navigate("/verify", { state: { email: body.email } });
       }, 1500);
@@ -87,180 +87,155 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen flex items-start justify-center py-12 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-900">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-gray-100">
-            Create your account
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 relative overflow-hidden transition-colors duration-200">
+      
+      {/* --- Background Decoration --- */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full z-0 pointer-events-none opacity-50 dark:opacity-20">
+        <div className="absolute top-[10%] left-[20%] w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
+        <div className="absolute top-[10%] right-[20%] w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-[30%] w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
+      </div>
+
+      {/* --- Signup Card --- */}
+      <div className="relative z-10 w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-8">
+        
+        <div className="text-center mb-6">
+          <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white">
+            Create Account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-300">
-            Start creating quizzes — it's free and fast.
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Start your learning journey with QuiZapp
           </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="mt-8 space-y-6 bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 rounded-lg p-6"
-        >
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Global Alerts */}
           {serverError && (
-            <div className="text-sm text-red-600 bg-red-50 dark:bg-red-900/40 p-2 rounded">
+            <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-lg">
               {serverError}
             </div>
           )}
-
           {successMessage && (
-            <div className="text-sm text-green-700 bg-green-50 dark:bg-green-900/30 p-2 rounded">
+            <div className="p-3 text-sm text-green-700 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/50 rounded-lg">
               {successMessage}
             </div>
           )}
 
-          <div className="rounded-md shadow-sm -space-y-px">
-            {/* Full Name */}
-            <div className="mb-3">
-              <label htmlFor="fullName" className="sr-only">
-                Full name
-              </label>
-              <input
-                id="fullName"
-                name="fullName"
-                type="text"
-                autoComplete="name"
-                required
-                value={form.fullName}
-                onChange={handleChange}
-                className={`appearance-none rounded-md relative block w-full px-3 py-2 border ${
-                  errors.fullName ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                } placeholder-gray-400 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                placeholder="Full name"
-                aria-invalid={!!errors.fullName}
-                aria-describedby={errors.fullName ? "fullName-error" : undefined}
-              />
-              {errors.fullName && (
-                <p id="fullName-error" className="mt-1 text-xs text-red-600">
-                  {errors.fullName}
-                </p>
-              )}
-            </div>
+          {/* Full Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
+            <input
+              name="fullName"
+              type="text"
+              required
+              value={form.fullName}
+              onChange={handleChange}
+              placeholder="John Doe"
+              className={`w-full px-4 py-2.5 rounded-lg border ${errors.fullName ? "border-red-500" : "border-gray-300 dark:border-gray-600"} bg-white dark:bg-gray-700/50 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
+            />
+            {errors.fullName && <p className="mt-1 text-xs text-red-500">{errors.fullName}</p>}
+          </div>
 
-            {/* Email */}
-            <div className="mb-3">
-              <label htmlFor="email" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={form.email}
-                onChange={handleChange}
-                className={`appearance-none rounded-md relative block w-full px-3 py-2 border ${
-                  errors.email ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                } placeholder-gray-400 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                placeholder="Email address"
-                aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? "email-error" : undefined}
-              />
-              {errors.email && (
-                <p id="email-error" className="mt-1 text-xs text-red-600">
-                  {errors.email}
-                </p>
-              )}
-            </div>
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
+            <input
+              name="email"
+              type="email"
+              required
+              value={form.email}
+              onChange={handleChange}
+              placeholder="you@example.com"
+              className={`w-full px-4 py-2.5 rounded-lg border ${errors.email ? "border-red-500" : "border-gray-300 dark:border-gray-600"} bg-white dark:bg-gray-700/50 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
+            />
+            {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+          </div>
 
-            {/* Password */}
-            <div className="mb-3">
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
+          {/* Password */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+            <div className="relative">
               <input
-                id="password"
                 name="password"
-                type="password"
-                autoComplete="new-password"
+                type={showPassword ? "text" : "password"}
                 required
                 value={form.password}
                 onChange={handleChange}
-                className={`appearance-none rounded-md relative block w-full px-3 py-2 border ${
-                  errors.password ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                } placeholder-gray-400 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                placeholder="Password (min 6 chars)"
-                aria-invalid={!!errors.password}
-                aria-describedby={errors.password ? "password-error" : undefined}
+                placeholder="Min 6 characters"
+                className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${errors.password ? "border-red-500" : "border-gray-300 dark:border-gray-600"} bg-white dark:bg-gray-700/50 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
               />
-              {errors.password && (
-                <p id="password-error" className="mt-1 text-xs text-red-600">
-                  {errors.password}
-                </p>
-              )}
             </div>
+            {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
+          </div>
 
-            {/* Confirm Password */}
-            <div className="mb-3">
-              <label htmlFor="confirmPassword" className="sr-only">
-                Confirm password
-              </label>
+          {/* Confirm Password */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirm Password</label>
+            <div className="relative">
               <input
-                id="confirmPassword"
                 name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
+                type={showConfirmPassword ? "text" : "password"}
                 required
                 value={form.confirmPassword}
                 onChange={handleChange}
-                className={`appearance-none rounded-md relative block w-full px-3 py-2 border ${
-                  errors.confirmPassword ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                } placeholder-gray-400 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                placeholder="Confirm password"
-                aria-invalid={!!errors.confirmPassword}
-                aria-describedby={errors.confirmPassword ? "confirmPassword-error" : undefined}
+                placeholder="Re-enter password"
+                className={`w-full pl-4 pr-10 py-2.5 rounded-lg border ${errors.confirmPassword ? "border-red-500" : "border-gray-300 dark:border-gray-600"} bg-white dark:bg-gray-700/50 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
               />
-              {errors.confirmPassword && (
-                <p id="confirmPassword-error" className="mt-1 text-xs text-red-600">
-                  {errors.confirmPassword}
-                </p>
-              )}
             </div>
-
-            {/* Role select */}
-            <div className="mb-5">
-              <label htmlFor="role" className="block text-sm mb-1 text-gray-700 dark:text-gray-300">Role</label>
-              <select
-                id="role"
-                name="role"
-                value={form.role}
-                onChange={handleChange}
-                className={`w-full p-2 rounded border ${errors.role ? "border-red-500" : "border-gray-200 dark:border-gray-700"} bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-indigo-500`}
-              >
-                <option value="student">Student</option>
-                <option value="teacher">Teacher</option>
-              </select>
-              {errors.role && <p className="mt-1 text-xs text-red-600">{errors.role}</p>}
-            </div>
+            {errors.confirmPassword && <p className="mt-1 text-xs text-red-500">{errors.confirmPassword}</p>}
           </div>
 
+          {/* Role */}
           <div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
-            >
-              {submitting ? "Signing up…" : "Create account"}
-            </button>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">I am a...</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, role: "student" }))}
+                className={`py-2.5 px-4 rounded-lg border text-sm font-medium transition-all ${
+                  form.role === "student"
+                    ? "bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-400 dark:text-indigo-300"
+                    : "bg-white dark:bg-gray-700/50 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                }`}
+              >
+                Student
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, role: "teacher" }))}
+                className={`py-2.5 px-4 rounded-lg border text-sm font-medium transition-all ${
+                  form.role === "teacher"
+                    ? "bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-400 dark:text-indigo-300"
+                    : "bg-white dark:bg-gray-700/50 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                }`}
+              >
+                Teacher
+              </button>
+            </div>
           </div>
 
-          <div className="text-sm text-center text-gray-600 dark:text-gray-300">
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 mt-2"
+          >
+            {submitting ? "Creating Account..." : "Sign Up"}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             Already have an account?{" "}
             <button
               type="button"
               onClick={() => navigate("/login")}
-              className="text-indigo-600 hover:text-indigo-500 dark:text-indigo-300 font-medium"
+              className="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 hover:underline transition-colors"
             >
-              Log in
+              Sign In
             </button>
-          </div>
-        </form>
+          </p>
+        </div>
       </div>
     </div>
   );

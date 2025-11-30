@@ -1,4 +1,3 @@
-// src/components/Layout.jsx
 import React from "react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
@@ -6,12 +5,11 @@ import { Outlet } from "react-router-dom";
 
 export default function Layout() {
   return (
-    // Use the same bg color for the whole page and ensure transitions are smooth
-    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200 font-sans">
       <Navbar />
-
-      {/* make main area use same background so there is no different band above footer */}
-      <main className="flex-grow bg-white dark:bg-gray-900">
+      
+      {/* Add top padding to avoid content hiding behind fixed navbar (h-16 = 4rem) */}
+      <main className="flex-grow pt-16">
         <Outlet />
       </main>
 

@@ -1,0 +1,19 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="paint0_linear_infinity" x1="10" y1="10" x2="90" y2="90" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F46E5" /> 
+      <stop offset="1" stop-color="#EC4899" />
+    </linearGradient>
+  </defs>
+  <path 
+    d="M50 10C27.9086 10 10 27.9086 10 50C10 72.0914 27.9086 90 50 90C60.3 90 69.7 86.1 76.8 79.7L62.5 65.4C59.1 67.7 54.8 69 50 69C39.5066 69 31 60.4934 31 50C31 39.5066 39.5066 31 50 31C60.4934 31 69 39.5066 69 50C69 52.8 68.4 55.4 67.3 57.8L83.5 74C87.6 67.1 90 58.9 90 50C90 27.9086 72.0914 10 50 10Z" 
+    fill="url(#paint0_linear_infinity)"
+  />
+  <path 
+    d="M72 70L85 85L95 65" 
+    stroke="url(#paint0_linear_infinity)" 
+    stroke-width="8" 
+    stroke-linecap="round" 
+    stroke-linejoin="round"
+  />
+</svg>

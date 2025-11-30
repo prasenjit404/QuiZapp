@@ -2,6 +2,7 @@
 import React from "react";
 import PropTypes from "prop-types";
 
+// Helper to safely extract nested properties
 const pick = (obj, paths) => {
   for (const p of paths) {
     const parts = p.split(".");
@@ -27,163 +28,158 @@ export default function QuizResult({
   onHome = () => (window.location.href = "/"),
   onViewLeaderboard = null,
 }) {
-  // Try multiple common paths to find the meaningful payload
-  // console.log(result);
+  // 1. Data Extraction
+  const data = pick(result, ["data.data", "data", "payload", ""]) ?? result ?? {};
   
-  const data = pick(result, [
-    "data.data", // e.g. { data: { data: {...} } }
-    "data",      // e.g. { data: {...} }
-    "payload",   // e.g. { payload: {...} }
-    ""           // fallback to the result itself
-  ]) ?? result ?? {};
+  const score = pick(data, ["score", "data.score", "result.score"]) ?? 0;
+  const total = pick(data, ["total", "data.total", "result.total", "totalQuestions"]) ?? 0;
+  const feedback = pick(data, ["feedback", "data.feedback", "result.feedback", "perQuestionFeedback", "details"]) || [];
+  
+  const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+  
+  // Determine status color/text
+  let statusColor = "text-indigo-600 dark:text-indigo-400";
+  let statusBg = "bg-indigo-100 dark:bg-indigo-900/30";
+  let statusText = "Good Job!";
+  
+  if (percentage >= 80) {
+    statusColor = "text-green-600 dark:text-green-400";
+    statusBg = "bg-green-100 dark:bg-green-900/30";
+    statusText = "Outstanding!";
+  } else if (percentage < 50) {
+    statusColor = "text-amber-600 dark:text-amber-400";
+    statusBg = "bg-amber-100 dark:bg-amber-900/30";
+    statusText = "Keep Practicing!";
+  }
 
-  // Flexible extractors (check several likely locations)
-  const score = pick(data, ["score", "data.score", "result.score"]);
-  const total = pick(data, ["total", "data.total", "result.total", "totalQuestions"]);
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+      <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+        
+        {/* --- Header / Score Section --- */}
+        <div className="bg-white dark:bg-gray-800 p-8 sm:p-10 text-center border-b border-gray-100 dark:border-gray-700 relative">
+          {/* Decorative blurs */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          
+          <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white relative z-10">
+            Quiz Completed!
+          </h2>
+          <p className={`mt-2 font-medium ${statusColor} relative z-10`}>
+            {statusText}
+          </p>
 
-  // feedback can be nested or under different keys — check common places
-  const feedback =
-    pick(data, ["feedback", "data.feedback", "result.feedback", "perQuestionFeedback", "details"]) ||
-    null;
-
-  // small components
-  const FeedbackList = ({ items }) => {
-    if (!Array.isArray(items) || items.length === 0) {
-      return <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">No feedback available.</div>;
-    }
-    return (
-      <div className="mt-6 space-y-3">
-        {items.map((fb, idx) => {
-          const isCorrect = !!fb.isCorrect || fb.correct === true;
-          return (
-            <div
-              key={fb._id ?? fb.questionId ?? idx}
-              className="p-3 rounded border border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-gray-900"
-            >
-              <div className="flex-1">
-                <div className="font-medium text-gray-900 dark:text-gray-100">{fb.question ?? fb.questionText ?? `Q ${idx + 1}`}</div>
-                <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                  Your answer: <span className="font-medium">{fb.selected ?? fb.selectedOption ?? "-"}</span>
-                  <span className="mx-2">•</span>
-                  Correct: <span className="font-medium">{fb.correct ?? fb.correctAnswer ?? "-"}</span>
-                </div>
-              </div>
-              <div className="mt-3 sm:mt-0 sm:ml-6">
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    isCorrect
-                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                      : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                  }`}
-                >
-                  {isCorrect ? "Correct" : "Incorrect"}
-                </span>
-              </div>
+          <div className="mt-8 flex justify-center relative z-10">
+            <div className={`w-40 h-40 rounded-full flex flex-col items-center justify-center border-8 ${percentage >= 80 ? "border-green-500/20" : percentage < 50 ? "border-amber-500/20" : "border-indigo-500/20"}`}>
+              <span className={`text-5xl font-bold ${statusColor}`}>
+                {score}
+              </span>
+              <span className="text-gray-400 text-sm font-medium uppercase tracking-wide mt-1">
+                of {total}
+              </span>
             </div>
-          );
-        })}
-      </div>
-    );
-  };
+          </div>
 
-  // Views (kept same structure as original, but using flexible variables)
-  const GuestDemoView = () => (
-    <div className="p-6 max-w-3xl mx-auto">
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded">
-        <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-          Demo Quiz Result
-        </h2>
-        <div className="text-sm text-gray-600 dark:text-gray-300 mb-4">{result?.message ?? ""}</div>
-
-        <div className="flex items-center gap-6">
-          <div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">Score</div>
-            <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-              {score ?? "--"}
-              {total ? <span className="text-base font-medium text-gray-500 dark:text-gray-400"> / {total}</span> : null}
-            </div>
+          <div className="mt-6 flex justify-center gap-2">
+             <div className={`px-4 py-1 rounded-full text-sm font-semibold ${statusBg} ${statusColor}`}>
+                {percentage}% Score
+             </div>
           </div>
         </div>
 
-        <div className="mt-6 flex gap-3 justify-center">
-          <button onClick={onRetry} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded">Retry</button>
-          <button onClick={onHome} className="px-4 py-2 border rounded bg-white hover:bg-gray-100 dark:bg-gray-200 dark:hover:bg-gray-300">Home</button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const AuthDemoView = () => (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-            Surprise Quiz Result
-            </h2>
-            {/* <div className="text-sm text-gray-600 dark:text-gray-300">{result?.message ?? ""}</div> */}
-          </div>
-
-          <div className="text-right">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Score</div>
-            <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-              {score ?? "--"}
-              {total ? <span className="text-base font-medium text-gray-500 dark:text-gray-400"> / {total}</span> : null}
+        {/* --- Feedback Review Section --- */}
+        {feedback.length > 0 ? (
+          <div className="p-6 sm:p-8 bg-gray-50/50 dark:bg-gray-900/50">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+              <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+              Detailed Review
+            </h3>
+            
+            <div className="space-y-4">
+              {feedback.map((item, idx) => {
+                const isCorrect = !!item.isCorrect || item.correct === true;
+                return (
+                  <div 
+                    key={idx} 
+                    className={`p-5 rounded-xl border-l-4 shadow-sm bg-white dark:bg-gray-800 ${
+                      isCorrect 
+                        ? "border-green-500" 
+                        : "border-red-500"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900 dark:text-gray-100 text-lg mb-3">
+                          <span className="text-gray-400 mr-2 text-base">Q{idx + 1}.</span> 
+                          {item.question ?? item.questionText ?? "Question Text"}
+                        </p>
+                        
+                        <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                          <div className={`p-3 rounded-lg ${isCorrect ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20"}`}>
+                            <span className="block text-xs text-grey-300 dark:text-amber-300 font-semibold uppercase opacity-70 mb-1">Your Answer</span>
+                            <span className={isCorrect ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}>
+                              {item.selected ?? item.selectedOption ?? "-"}
+                            </span>
+                          </div>
+                          
+                          {!isCorrect && (
+                            <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                              <span className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Correct Answer</span>
+                              <span className="text-gray-800 dark:text-gray-200">
+                                {item.correct ?? item.correctAnswer ?? "-"}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className={`shrink-0 p-2 rounded-full ${isCorrect ? "bg-green-100 text-green-600 dark:bg-green-900/30" : "bg-red-100 text-red-600 dark:bg-red-900/30"}`}>
+                        {isCorrect ? (
+                          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                        ) : (
+                          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-8 text-center bg-gray-50/50 dark:bg-gray-900/50">
+            <p className="text-gray-500 dark:text-gray-400 italic">
+              Detailed feedback is available for registered users.
+            </p>
+          </div>
+        )}
 
-        {/* Feedback */}
-        <div>
-          {/* <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">Per-question feedback</h3> */}
-          <FeedbackList items={Array.isArray(feedback) ? feedback : []} />
-        </div>
+        {/* --- Action Footer --- */}
+        <div className="p-6 sm:p-8 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-center gap-4">
+          <button 
+            onClick={onHome}
+            className="px-6 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            Back to Home
+          </button>
+          
+          <button 
+            onClick={onRetry}
+            className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-lg shadow-indigo-500/30 transition-transform transform hover:-translate-y-0.5"
+          >
+            Retry Quiz
+          </button>
 
-        <div className="mt-6 flex gap-3 justify-center">
-          <button onClick={onRetry} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded">Retry</button>
-          <button onClick={onHome} className="px-4 py-2 border rounded bg-white hover:bg-gray-100 dark:bg-gray-200 dark:hover:bg-gray-300">Home</button>
           {(quiz?._id || quiz?.id) && (
             <button
-              onClick={() =>
-                onViewLeaderboard ? onViewLeaderboard(quiz._id || quiz.id) : (window.location.href = `/leaderboard/${quiz._id || quiz.id}`)
-              }
-              className="px-4 py-2 border rounded bg-white dark:bg-gray-900"
+              onClick={() => onViewLeaderboard ? onViewLeaderboard(quiz._id || quiz.id) : (window.location.href = `/leaderboard/${quiz._id || quiz.id}`)}
+              className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-lg shadow-amber-500/30 transition-transform transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
             >
-              View Leaderboard
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+              Leaderboard
             </button>
           )}
         </div>
-      </div>
-    </div>
-  );
 
-  // dev: show raw payload collapsed to inspect structure (only shown if feedback missing)
-  const RawPayload = () => (
-    <details className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 border rounded text-sm">
-      <summary className="cursor-pointer">Raw result payload (click to expand)</summary>
-      <pre className="mt-2 overflow-auto text-xs">{JSON.stringify(result, null, 2)}</pre>
-    </details>
-  );
-
-  // choose view
-  if (mode === "guest-demo") return <GuestDemoView />;
-  if (mode === "auth-demo") return (
-    <>
-      <AuthDemoView />
-      {(!Array.isArray(feedback) || feedback.length === 0) && <RawPayload />}
-    </>
-  );
-
-  // fallback
-  return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded">
-        <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Result</h2>
-        <pre className="bg-gray-100 dark:bg-gray-800 p-3 rounded text-sm overflow-auto">{JSON.stringify(result, null, 2)}</pre>
-        <div className="mt-4 flex gap-3">
-          <button onClick={onRetry} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded">Retry</button>
-          <button onClick={onHome} className="px-4 py-2 border rounded bg-white dark:bg-gray-900">Home</button>
-        </div>
       </div>
     </div>
   );

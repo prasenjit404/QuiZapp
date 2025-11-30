@@ -9,7 +9,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 lg:px-8 relative z-10">
           <div className="text-center max-w-3xl mx-auto">
             <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-6 leading-tight">
-              Master Your Knowledge with <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">QuiZapp</span>
+              Master Your Knowledge with <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-pink-500">QuiZapp</span>
             </h1>
             <p className="mt-6 text-xl text-gray-600 dark:text-gray-300 mb-10 leading-relaxed">
               The ultimate platform for teachers to assess and students to excel.
@@ -34,9 +34,9 @@ export default function Home() {
         
         {/* Background decoration */}
         <div className="absolute top-0 left-1/2 w-full -translate-x-1/2 h-full overflow-hidden -z-0 pointer-events-none opacity-50 dark:opacity-20">
-          <div className="absolute top-[20%] left-[20%] w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
+          <div className="absolute top-[20%] left-[20%] w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
           <div className="absolute top-[20%] right-[20%] w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-          <div className="absolute -bottom-8 left-[40%] w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+          <div className="absolute -bottom-8 left-[40%] w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
         </div>
       </section>
 
@@ -48,7 +48,7 @@ export default function Home() {
             <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">Everything you need to run engaging assessments.</p>
           </div>
 
-          {/* Updated Grid: 1 col mobile, 2 cols tablet, 4 cols desktop */}
+          {/* Grid: 1 col mobile, 2 cols tablet, 4 cols desktop */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <FeatureCard
               icon="⚡"
@@ -91,7 +91,7 @@ export default function Home() {
             
             {/* Visual Element */}
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-2xl transform rotate-3 scale-105 opacity-20 blur-lg"></div>
+              <div className="absolute inset-0 bg-gradient-to-tr from-indigo-600 to-pink-500 rounded-2xl transform rotate-3 scale-105 opacity-20 blur-lg"></div>
               <div className="relative bg-gray-900 rounded-2xl p-8 shadow-2xl border border-gray-800 text-gray-300">
                 <div className="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
                   <div className="flex space-x-2">
@@ -107,7 +107,7 @@ export default function Home() {
                     <p className="text-white">Which HTTP status code means "Unauthorized"?</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-gray-800 rounded border border-gray-700 hover:border-indigo-500 cursor-pointerqn transition">200 OK</div>
+                    <div className="p-3 bg-gray-800 rounded border border-gray-700 hover:border-indigo-500 cursor-pointer transition">200 OK</div>
                     <div className="p-3 bg-indigo-900/30 rounded border border-indigo-500 text-white font-medium">401 Unauthorized</div>
                     <div className="p-3 bg-gray-800 rounded border border-gray-700 hover:border-indigo-500 cursor-pointer transition">404 Not Found</div>
                     <div className="p-3 bg-gray-800 rounded border border-gray-700 hover:border-indigo-500 cursor-pointer transition">500 Server Error</div>

@@ -22,7 +22,7 @@ export default function QuizPlayerWithOtp() {
   const [available, setAvailable] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch quiz by ID + OTP (via query params)
+  // Fetch quiz by ID + OTP
   useEffect(() => {
     const fetchQuiz = async () => {
       try {
@@ -62,12 +62,10 @@ export default function QuizPlayerWithOtp() {
     return () => clearInterval(timer);
   }, [countdown]);
 
-  // Option selection
   const handleOptionSelect = (questionId, option) => {
     setAnswers((prev) => ({ ...prev, [questionId]: option }));
   };
 
-  // Navigation
   const handleNext = () => {
     if (currentIndex < quiz.questions.length - 1) setCurrentIndex((prev) => prev + 1);
   };
@@ -76,12 +74,9 @@ export default function QuizPlayerWithOtp() {
     if (currentIndex > 0) setCurrentIndex((prev) => prev - 1);
   };
 
-  // Submit quiz
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
-
-      // Convert answers to array format
       const formattedAnswers = Object.entries(answers).map(([questionId, selectedOption]) => ({
         questionId,
         selectedOption,
@@ -96,7 +91,6 @@ export default function QuizPlayerWithOtp() {
       const res = await axiosClient.post("/submissions/submit", payload);
       const data = res?.data?.data || res.data;
 
-      console.log("✅ Submission successful:",data);
       navigate(`/quiz/${quizId}/result`, { state: { result: data } });
     } catch (err) {
       console.error(err);
@@ -106,7 +100,6 @@ export default function QuizPlayerWithOtp() {
     }
   };
 
-  // Start quiz
   const startQuiz = () => {
     setQuizStarted(true);
     setStartedAt(new Date().toISOString());
@@ -118,111 +111,173 @@ export default function QuizPlayerWithOtp() {
     return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
   };
 
-  // Loading state
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center text-gray-600 dark:text-gray-200">
-        Loading quiz…
+  // --- UI Wrapper ---
+  const Wrapper = ({ children }) => (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 relative overflow-hidden transition-colors duration-200">
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full z-0 pointer-events-none opacity-50 dark:opacity-20">
+        <div className="absolute top-[10%] right-[10%] w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
+        <div className="absolute bottom-[10%] left-[10%] w-96 h-96 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
       </div>
-    );
-
-  // Error state
-  if (error)
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-red-500">
-        <p className="text-lg font-semibold mb-2">⚠️ {error}</p>
-        <button
-          onClick={() => navigate(-1)}
-          className="px-4 py-2 bg-gray-800 text-white rounded"
-        >
-          Go Back
-        </button>
+      <div className="relative z-10 w-full max-w-3xl">
+        {children}
       </div>
-    );
+    </div>
+  );
 
-  // Countdown waiting screen
-  if (!available && countdown !== null)
+  // 1. Loading
+  if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
-        <h1 className="text-2xl font-semibold mb-2">{quiz?.title}</h1>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">{quiz?.description}</p>
-        <p className="text-lg font-medium text-yellow-500 mb-2">Quiz starts in:</p>
-        <p className="text-4xl font-mono font-bold mb-4">{formatTime(countdown)}</p>
-        <button
-          disabled
-          className="w-64 py-2.5 rounded-md bg-gray-400 text-white cursor-not-allowed"
-        >
-          Waiting to start…
-        </button>
-      </div>
+      <Wrapper>
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-300 font-medium">Loading quiz session...</p>
+        </div>
+      </Wrapper>
     );
+  }
 
-  // Start quiz screen
-  if (!quizStarted)
+  // 2. Error
+  if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-8 w-full max-w-lg text-center border border-gray-200 dark:border-gray-700">
-          <h1 className="text-2xl font-bold mb-2">{quiz?.title}</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">{quiz?.description}</p>
-          <div className="flex flex-col gap-1 text-sm text-gray-500 dark:text-gray-400 mb-6">
-            <p>
-              <strong>Duration:</strong> {quiz?.duration ?? 0} min
-            </p>
-            <p>
-              <strong>Total Marks:</strong> {quiz?.totalMarks ?? 0}
-            </p>
-            <p>
-              <strong>Questions:</strong> {quiz?.questions?.length ?? 0}
-            </p>
-          </div>
+      <Wrapper>
+        <div className="max-w-md mx-auto bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl text-center border border-gray-100 dark:border-gray-700">
+          <div className="text-red-500 mb-4 text-5xl">⚠️</div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Unable to Load Quiz</h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">{error}</p>
           <button
-            onClick={startQuiz}
-            className="w-full py-2.5 rounded-md bg-green-600 hover:bg-green-700 text-white font-medium transition-all"
+            onClick={() => navigate(-1)}
+            className="px-6 py-2 bg-gray-900 dark:bg-gray-700 text-white rounded-lg hover:opacity-90 transition-colors"
           >
-            Start Quiz
+            Go Back
           </button>
         </div>
-      </div>
+      </Wrapper>
     );
+  }
 
-  // Main quiz screen
+  // 3. Countdown (Waiting Room)
+  if (!available && countdown !== null) {
+    return (
+      <Wrapper>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-10 text-center border border-gray-100 dark:border-gray-700">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{quiz?.title}</h1>
+          <p className="text-gray-500 dark:text-gray-400 mb-8">{quiz?.description || "Get ready, the quiz will begin shortly."}</p>
+          
+          <div className="mb-8">
+            <span className="text-sm font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">Starting In</span>
+            <div className="text-6xl font-mono font-bold text-gray-900 dark:text-white mt-2">
+              {formatTime(countdown)}
+            </div>
+          </div>
+
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-full text-sm text-gray-600 dark:text-gray-300 animate-pulse">
+            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+            Waiting for server start time...
+          </div>
+        </div>
+      </Wrapper>
+    );
+  }
+
+  // 4. Start Screen (Before entering questions)
+  if (!quizStarted) {
+    return (
+      <Wrapper>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-100 dark:border-gray-700 text-center">
+          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-3">{quiz?.title}</h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-lg mx-auto">{quiz?.description}</p>
+          
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Duration</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">{quiz?.duration ?? 0}m</p>
+            </div>
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Questions</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">{quiz?.questions?.length ?? 0}</p>
+            </div>
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Marks</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">{quiz?.totalMarks ?? 0}</p>
+            </div>
+          </div>
+
+          <button
+            onClick={startQuiz}
+            className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg shadow-lg shadow-indigo-500/30 transition-transform transform hover:-translate-y-0.5"
+          >
+            Start Quiz Now
+          </button>
+        </div>
+      </Wrapper>
+    );
+  }
+
+  // 5. Main Quiz Interface
   const question = quiz.questions[currentIndex];
+  const progress = ((currentIndex + 1) / quiz.questions.length) * 100;
 
   return (
-    <div className="flex flex-col items-center min-h-screen py-10 bg-gray-50 dark:bg-gray-900">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 w-full max-w-2xl border border-gray-200 dark:border-gray-700">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-lg font-semibold">{quiz.title}</h1>
-          <span className="text-sm text-gray-500">
-            Q{currentIndex + 1}/{quiz.questions.length}
-          </span>
+    <Wrapper>
+      <div className="w-full">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{quiz.title}</h2>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Question {currentIndex + 1} of {quiz.questions.length}</span>
+          </div>
+          {/* Optional: Add a live timer here if needed */}
         </div>
 
-        <h2 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">
-          {question.text}
-        </h2>
-
-        <div className="flex flex-col gap-3">
-          {question.options.map((opt, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleOptionSelect(question._id, opt)}
-              className={`px-4 py-2 text-left border rounded-md transition ${
-                answers[question._id] === opt
-                  ? "bg-indigo-600 text-white border-indigo-600"
-                  : "bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
+        {/* Progress Bar */}
+        <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full mb-8 overflow-hidden">
+          <div 
+            className="h-full bg-indigo-600 transition-all duration-300 ease-out"
+            style={{ width: `${progress}%` }}
+          ></div>
         </div>
 
-        <div className="flex justify-between mt-6">
+        {/* Question Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 md:p-8 mb-6">
+          <h3 className="text-xl md:text-2xl font-medium text-gray-900 dark:text-gray-100 mb-6 leading-snug">
+            {question.text}
+          </h3>
+
+          <div className="space-y-3">
+            {question.options.map((opt, idx) => {
+              const isSelected = answers[question._id] === opt;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => handleOptionSelect(question._id, opt)}
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-4 outline-none ${
+                    isSelected
+                      ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-600 dark:ring-indigo-500"
+                      : "border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                  }`}
+                >
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border transition-colors ${
+                    isSelected
+                      ? "bg-indigo-600 border-indigo-600 text-white"
+                      : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
+                  }`}>
+                    {String.fromCharCode(65 + idx)}
+                  </div>
+                  <span className={`text-base ${isSelected ? "text-indigo-900 dark:text-indigo-100 font-medium" : "text-gray-700 dark:text-gray-300"}`}>
+                    {opt}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Navigation Footer */}
+        <div className="flex items-center justify-between gap-4">
           <button
             onClick={handlePrev}
             disabled={currentIndex === 0}
-            className="px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+            className="px-6 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Previous
           </button>
@@ -231,20 +286,20 @@ export default function QuizPlayerWithOtp() {
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-60"
+              className="px-8 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-500/30 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5"
             >
-              {submitting ? "Submitting…" : "Submit"}
+              {submitting ? "Submitting..." : "Submit Quiz"}
             </button>
           ) : (
             <button
               onClick={handleNext}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md"
+              className="px-8 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-lg shadow-indigo-500/30 transition-all transform hover:-translate-y-0.5"
             >
               Next
             </button>
           )}
         </div>
       </div>
-    </div>
+    </Wrapper>
   );
 }

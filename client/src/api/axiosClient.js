@@ -1,16 +1,16 @@
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:11000"
-
+// If using Proxy, we leave the base empty (or just the path)
+// The browser will append this to the current origin (http://localhost:5173)
+// The proxy will then catch '/api' and forward it to the backend.
 const axiosClient = axios.create({
-  baseURL: `${API_BASE}/api/v1`,
-  withCredentials: true, // send cookies if backend uses httpOnly refresh token
+  baseURL: "/api/v1", 
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// helpers: set/clear auth token (in-memory header)
 export function setAuthToken(token) {
   if (token) {
     axiosClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;

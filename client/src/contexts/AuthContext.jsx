@@ -10,7 +10,7 @@ export function AuthProvider({ children }) {
     const stored = localStorage.getItem("user");
     return stored ? JSON.parse(stored) : null;
   });
-  const [accessToken, setAccessToken] = useState(null); // in-memory only
+  const [accessToken, setAccessToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -18,40 +18,39 @@ export function AuthProvider({ children }) {
     let mounted = true;
     const init = async () => {
       try {
-        // 1️⃣ Try fetching current user
-        const res = await axiosClient.get("/users/current-user");
-        if (!mounted) return;
-        const currentUser = res.data?.data?.user || null;
-        const token = res.data?.data?.accessToken || null;
+        // 1️⃣ Always try to refresh token first on load
+        // This ensures we get a fresh Access Token string for the headers
+        const refreshRes = await axiosClient.post("/users/refresh-token");
+        const token = refreshRes.data?.data?.accessToken;
 
-        if (currentUser) setUser(currentUser);
         if (token) {
           setAccessToken(token);
-          setAuthToken(token);
+          setAuthToken(token); // Set the header immediately
+
+          // 2️⃣ Now fetch the current user details using the valid header
+          const userRes = await axiosClient.get("/users/current-user");
+          const currentUser = userRes.data?.data?.user || userRes.data?.data;
+
+          if (currentUser) {
+            setUser(currentUser);
+            localStorage.setItem("user", JSON.stringify(currentUser));
+          }
+        } else {
+          throw new Error("No token returned");
         }
       } catch (err) {
-        // 2️⃣ Try refresh token if current-user fails
-        try {
-          const refresh = await axiosClient.post("/users/refresh-token");
-          const token = refresh.data?.data?.accessToken;
-          if (token) {
-            setAccessToken(token);
-            setAuthToken(token);
-            const me = await axiosClient.get("/users/current-user", {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            setUser(me.data?.data?.user || null);
-          }
-        } catch (e) {
-          console.warn("Session expired or refresh failed");
-          setUser(null);
-          setAccessToken(null);
-          localStorage.removeItem("user");
-        }
+        console.warn("Session initialization failed:", err);
+        // If refresh fails, clear everything
+        setUser(null);
+        setAccessToken(null);
+        setAuthToken(null);
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
       } finally {
         if (mounted) setLoading(false);
       }
     };
+
     init();
     return () => (mounted = false);
   }, []);
@@ -74,7 +73,7 @@ export function AuthProvider({ children }) {
         localStorage.setItem("user", JSON.stringify(loggedInUser));
       }
 
-      navigate("/dashboard");
+      navigate("/"); // Redirect to dashboard/home
     } catch (err) {
       console.error("Login error:", err);
       throw err;
@@ -91,6 +90,7 @@ export function AuthProvider({ children }) {
     } finally {
       setUser(null);
       setAccessToken(null);
+      setAuthToken(null);
       localStorage.removeItem("user");
       localStorage.removeItem("token");
       navigate("/login");
